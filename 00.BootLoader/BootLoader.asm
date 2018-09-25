@@ -41,14 +41,12 @@ push MESSAGE1
 push 0
 push 0
 call PRINTMESSAGE
-add sp, 6
 
 ;print MESSAGE2
 push MESSAGE2
 push 1
 push 0
 call PRINTMESSAGE
-add sp, 6
 
 ;print time 
 .PRINT_TIME:
@@ -58,44 +56,31 @@ add sp, 6
     mov ah, 02h
     int 1Ah
 .BCDTOASCII_HOUR:
-    mov al, ch
-    mov ah, al
-    and ax, 0xf00f
-    shr ah, 0x04
-    or ax, 0x3030
-    xchg al, ah
+    mov ah, ch
+	call BCDTOASCII
 .PRINT_HOUR:
-    mov byte[es:di], al
-    mov byte[es:di+2], ah
+    mov byte[es:di], ah
+    mov byte[es:di+2], al
 .BCDTOASCII_MIN:
-    mov al, cl
-    mov ah, al
-    and ax, 0xf00f
-    shr ah, 0x04
-    or ax, 0x3030
-    xchg al, ah
+    mov ah, cl
+	call BCDTOASCII
 .PRINT_MIN:
     mov byte[es:di+4], ':'
-    mov byte[es:di+6], al
-    mov byte[es:di+8], ah
+    mov byte[es:di+6], ah
+    mov byte[es:di+8], al
 .BCDTOASCII_SEC:
-    mov al, dh
-    mov ah, al
-    and ax, 0xf00f
-    shr ah, 0x04
-    or ax, 0x3030
-    xchg al, ah
+    mov ah, dh
+	call BCDTOASCII
 .PRINT_SEC:
     mov byte[es:di+10], ':'
-    mov byte[es:di+12], al
-    mov byte[es:di+14], ah
+    mov byte[es:di+12], ah
+    mov byte[es:di+14], al
 
 ;print image loading message
 push IMAGELOADINGMESSAGE
 push 2
 push 0
 call PRINTMESSAGE
-add sp, 6
 
 ; Loading OS Image
 RESETDISK:
@@ -106,6 +91,7 @@ RESETDISK:
 
     mov si, 0x1000 ;memory address to copy OS image
     mov es, si
+	mov fs, si
     mov bx, 0x0000
 
     mov di, word[TOTALSECTORCOUNT]
@@ -123,8 +109,36 @@ READDATA:
     int 0x13
     jc HANDLEDISKERROR
 
-    add si, 0x0020
+   mov dx, si ; temporarily save si to restore later
+;;;;
+.GET_HASH:
+    mov ax, es
+    mov cx, fs
+    cmp ax, cx
+    jne .NOT_FIRST_READ
+.FIRST_READ:
+    mov si, 8
+.NOT_FIRST_READ:
+    mov si, 0
+.HASH_LOOP:
+    mov ax, [fs:4]
+    mov cx, [es:si]
+    xor ax, cx
+    mov [fs:4], ax
 
+    mov ax, [fs:6]
+    mov cx, [es:si+2]
+    xor ax, cx
+    mov [fs:6], ax
+
+    add si, 4
+
+    cmp si, 0x200
+    jne .HASH_LOOP
+;;;;;
+    mov si, dx ; restore si
+
+    add si, 0x0020
     mov es, si
 
     mov al, byte[SECTORNUMBER]
@@ -149,9 +163,19 @@ push LOADINGCOMPLETEMESSAGE
 push 2
 push 19
 call PRINTMESSAGE
-add sp, 6
 
-jmp 0x1000:0x0000
+.SECURE_BOOT:
+    mov si, 0
+	mov cx, [fs:si]
+	mov dx, [fs:si+2]
+	mov ax, [fs:si+4]
+	mov bx, [fs:si+6]
+.COMPARE_LOWER_HASH:
+	xor cx, ax
+.COMPARE_UPPER_HASH:
+	xor dx, bx
+
+jmp 0x1001:0x0000
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -178,7 +202,6 @@ PRINTMESSAGE:
     push di
     push ax
     push cx
-    push dx
 
     mov ax, 0xB800
     mov es, ax
@@ -212,14 +235,19 @@ PRINTMESSAGE:
     jmp .MESSAGELOOP
 
 .MESSAGEEND:
-    pop dx
     pop cx
     pop ax
     pop di
     pop si
     pop es
     pop bp
-    ret
+    ret 6
+
+BCDTOASCII:
+    and ax, 0xf00f
+	shr ah, 0x04
+	or ax, 0x3030
+	ret 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Data Area
