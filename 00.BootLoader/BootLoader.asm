@@ -8,7 +8,7 @@ jmp 0x07C0:START
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Setting OS environment
 ;;;;;;;;;;;;;;;;;;;;;;;;;
-TOTALSECTORCOUNT: dw 1024 ; size of MINT64 OS image except bootloader
+TOTALSECTORCOUNT: dw 1 ; size of MINT64 OS image except bootloader
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Code Area
@@ -51,7 +51,7 @@ call PRINTMESSAGE
 ;print time 
 .PRINT_TIME:
     mov ax, 0
-    mov di, 188
+    mov di, 172
 .GETTIME:                    ;get time from BIOS interrupt
     mov ah, 02h
     int 1Ah
@@ -112,29 +112,34 @@ READDATA:
    mov dx, si ; temporarily save si to restore later
 ;;;;
 .GET_HASH:
-    mov ax, es
-    mov cx, fs
-    cmp ax, cx
-    jne .NOT_FIRST_READ
-.FIRST_READ:
-    mov si, 8
-.NOT_FIRST_READ:
-    mov si, 0
+;    mov ax, es
+;    mov cx, fs
+;    cmp ax, cx
+;    jne .NOT_FIRST_READ
+;.FIRST_READ:
+    mov si, 0x0C
+	mov ax, [fs:8]
+	mov bx, [fs:0x0A]
+	mov [ds:0], ax
+	mov [ds:2], bx
+;	jmp .HASH_LOOP
+;.NOT_FIRST_READ:
+;    mov si, 0
+;	mov ax, [ds:0]
+;	mov bx, [ds:2]
 .HASH_LOOP:
-    mov ax, [fs:4]
     mov cx, [es:si]
     xor ax, cx
-    mov [fs:4], ax
 
-    mov ax, [fs:6]
     mov cx, [es:si+2]
-    xor ax, cx
-    mov [fs:6], ax
+    xor bx, cx
 
-    add si, 4
-
-    cmp si, 0x200
+    add si, 0x04
+    cmp si, 0x204
     jne .HASH_LOOP
+	
+	mov [ds:0], ax
+	mov [ds:2], bx
 ;;;;;
     mov si, dx ; restore si
 
@@ -165,17 +170,22 @@ push 19
 call PRINTMESSAGE
 
 .SECURE_BOOT:
+    push IMAGE_CHECKING_MESSAGE
+	push 3
+	push 0
+	call PRINTMESSAGE
+
     mov si, 0
 	mov cx, [fs:si]
 	mov dx, [fs:si+2]
-	mov ax, [fs:si+4]
-	mov bx, [fs:si+6]
+	mov ax, [ds:si]
+	mov bx, [ds:si+2]
 .COMPARE_LOWER_HASH:
 	xor cx, ax
 .COMPARE_UPPER_HASH:
 	xor dx, bx
 
-jmp 0x1001:0x0000
+jmp 0x1000:0x04
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -253,11 +263,13 @@ BCDTOASCII:
 ; Data Area
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;messages
-MESSAGE1:   db 'MINT64 OS Boot Loader Start~!!', 0
-MESSAGE2:   db 'Current Time: ', 0
+MESSAGE1:   db 'BootLoader Start', 0
+MESSAGE2:   db 'Time: ', 0
 IMAGELOADINGMESSAGE:   db 'OS Image Loading...', 0
-LOADINGCOMPLETEMESSAGE: db 'Complete~!!', 0
-DISKERRORMESSAGE: db 'Disk Error~!!', 0
+;IMAGE_CHECKING_MESSAGE: db 'img Check', 0
+LOADINGCOMPLETEMESSAGE: db 'Complete', 0
+DISKERRORMESSAGE: db 'DiskErr', 0
+IMAGE_CHECKING_MESSAGE: db 'OS Image Checking...', 0
 
 ;values
 SECTORNUMBER: db 0x02
