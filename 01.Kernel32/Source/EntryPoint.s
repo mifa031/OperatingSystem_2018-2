@@ -12,6 +12,7 @@ START:
 ;	mov cx, 1 ;;; for test	
 .INSPECT_LOWER_HASH:
     cmp cx, 0
+	;jmp .IMAGE_CHECK_OK
 	jne .IMAGE_CHECK_FAIL
 .INSPECT_UPPER_HASH: 
     cmp dx, 0
@@ -19,7 +20,7 @@ START:
 .IMAGE_CHECK_FAIL:
     push (CHECKING_FAIL_MESSAGE - $$ + 0x10004)
 	push 3
-	push 20
+	push 10
 	call PRINTMESSAGE16
 
     push (LOADED_HASH_MESSAGE - $$ + 0x10004)
@@ -82,7 +83,7 @@ START:
 .IMAGE_CHECK_OK:
     push (CHECKING_COMPLETE_MESSAGE - $$ + 0x10004)
 	push 3
-	push 20
+	push 10
 	call PRINTMESSAGE16
 
    cli
@@ -90,8 +91,8 @@ START:
 
    mov eax, 0x4000003B
    mov cr0, eax
-;jmp $   
-   jmp dword 0x08:(PROTECTEDMODE - $$ + 0x10004)
+   
+   jmp dword 0x18:(PROTECTEDMODE - $$ + 0x10004)
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ; 16bit fucntion area
@@ -186,15 +187,15 @@ GET_HASH_CHAR:
 	ret 
 
 CHECKING_COMPLETE_MESSAGE: db 'Ok', 0
-CHECKING_FAIL_MESSAGE: db 'Fail', 0
-LOADED_HASH_MESSAGE: db 'LHash:', 0
-CACULATED_HASH_MESSAGE: db 'CHash:',0
+CHECKING_FAIL_MESSAGE: db 'F', 0
+LOADED_HASH_MESSAGE: db 'L', 0
+CACULATED_HASH_MESSAGE: db 'C',0
 
 [BITS 32]
 PROTECTEDMODE:
-   mov ax, 0x10
+   mov ax, 0x20
    mov ds, ax
-;jmp $
+   
    mov ss, ax
    mov esp, 0xfffe
    mov ebp, 0xfffe
@@ -203,8 +204,8 @@ PROTECTEDMODE:
    push 4
    push 0
    call PRINTMESSAGE32
-
-   jmp $
+   
+   jmp dword 0x18:0x10200
 
 PRINTMESSAGE32:
    push ebp
@@ -240,8 +241,6 @@ PRINTMESSAGE32:
    ret 12
 
 align 8, db 0
-
-
 dw 0x0000
 GDTR:
    dw GDTEND -GDT -1
@@ -254,6 +253,20 @@ GDT:
       db 0x00
       db 0x00
       db 0x00
+   IA_32eCODEDESCRIPTOR:
+      dw 0xFFFF
+	  dw 0x0000
+	  db 0x00
+	  db 0x9A
+	  db 0xAF
+	  db 0x00
+   IA_32eDATADESCRIPTOR:
+      dw 0xFFFF
+	  dw 0x0000
+	  db 0x00
+	  db 0x92
+	  db 0xAF
+	  db 0x00
    CODEDESCRIPTOR:
       dw 0xFFFF
 	  dw 0x0000
@@ -271,6 +284,6 @@ GDT:
 GDTEND:
 
 
-SWITCHSUCCESSMESSAGE: db 'ProtectMode',0
+SWITCHSUCCESSMESSAGE: db 'PMd',0
 
 times 508 - ($- $$) db 0x00 
