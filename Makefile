@@ -1,4 +1,4 @@
-all: BootLoader Kernel32 Disk.img
+all: BootLoader Kernel32 Kernel64 Disk.img
 
 BootLoader:
 	@echo 
@@ -22,10 +22,11 @@ Kernel32:
 	@echo =============== Build Complete ===============
 	@echo
 
-temp.bin: 01.Kernel32/Kernel32.bin
-	split -d -a 3 -b 4 01.Kernel32/Kernel32.bin spl
+temp.bin: 01.Kernel32/Temp/EntryPoint.bin
+	split -d -a 3 -b 4 01.Kernel32/Temp/EntryPoint.bin spl
 	rm spl000
 	cat spl* > temp.bin
+	rm spl*
 
 Hash: 00.BootLoader/BootLoader.bin 01.Kernel32/Kernel32.bin temp.bin
 	$(shell $(eval hash1=$(shell xxd -p -s +0 -l 4 temp.bin)) \
@@ -62,22 +63,36 @@ Hash: 00.BootLoader/BootLoader.bin 01.Kernel32/Kernel32.bin temp.bin
 		)
 
 temp2.bin: Kernel32 Hash temp.bin
-	cat Hash temp.bin > temp2.bin 
-	#cat 01.Kernel32/Kernel32.bin > temp.bin
+	split -d -a 3 -b 4 01.Kernel32/Kernel32.bin spl
+	rm spl000
+	cat spl* > temp3.bin
+	cat Hash temp3.bin > temp2.bin
 
-Disk.img: 00.BootLoader/BootLoader.bin 01.Kernel32/Kernel32.bin temp2.bin
+Kernel64: temp2.bin
+	@echo
+	@echo =========== Build 64bit Kernel ===============
+	@echo
+	
+	make -C 02.Kernel64
+	
+	@echo
+	@echo =========== Build Complete ===================
+	@echo
+
+Disk.img: 00.BootLoader/BootLoader.bin 01.Kernel32/Kernel32.bin 02.Kernel64/Kernel64.bin temp2.bin
 	@echo 
 	@echo =========== Disk Image Build Start ===========
 	@echo 
 	
-	#cat $^ > Disk.img
-	cat 00.BootLoader/BootLoader.bin temp2.bin > Disk.img
+	cat ./temp2.bin > 01.Kernel32/Kernel32.bin
+	./ImageMaker.exe $^
 	
+	#cat 00.BootLoader/BootLoader.bin temp2.bin > Disk.img
 	@echo 
 	@echo ============= All Build Complete =============
 	@echo
 	
-	rm -f Hash last_padding temp_file temp_size hash_temp temp_file2 zero hex temp.bin temp2.bin temp_file3 spl*
+	rm -f Hash last_padding temp_file temp_size hash_temp temp_file2 zero hex temp.bin temp2.bin temp3.bin temp_file3 spl*
 
 run:
 	qemu-system-x86_64 -L . -fda Disk.img -m 64 -M pc -rtc base=localtime -s Disk.img
@@ -85,4 +100,6 @@ run:
 clean:
 	make -C 00.BootLoader clean
 	make -C 01.Kernel32 clean
+	make -C 02.Kernel64 clean
+	make -C 04.Utility clean
 	rm -f Disk.img	
