@@ -42,9 +42,12 @@ void kInitializePageTables( void )
 	for( i = 0 ; i < PAGE_MAXENTRYCOUNT * 32768 ; i++ )
 	{
 	    if(dwMappingAddress == 0x1ff000){
-		kSetPageEntryData( &( pstPTEntry[ i ] ), ( i * ( PAGE_DEFAULTSIZE >> 11 ) ) >> 12, dwMappingAddress, PAGE_FLAGS_P, 0 );
+			// non-present page test
+			kSetPageEntryData( &( pstPTEntry[ i ] ), ( i * ( PAGE_DEFAULTSIZE >> 11 ) ) >> 12, dwMappingAddress, 0, 0 );
+			// read-only page test
+			//kSetPageEntryData( &( pstPTEntry[ i ] ), ( i * ( PAGE_DEFAULTSIZE >> 11 ) ) >> 12, dwMappingAddress, PAGE_FLAGS_P, 0 );
 		}else{
-		kSetPageEntryData( &( pstPTEntry[ i ] ), ( i * ( PAGE_DEFAULTSIZE >> 11 ) ) >> 12, dwMappingAddress, PAGE_FLAGS_DEFAULT, 0 );
+			kSetPageEntryData( &( pstPTEntry[ i ] ), ( i * ( PAGE_DEFAULTSIZE >> 11 ) ) >> 12, dwMappingAddress, PAGE_FLAGS_DEFAULT, 0 );
 		}
 		dwMappingAddress += PAGE_DEFAULTSIZE;
 	}
